@@ -64,3 +64,13 @@ class Lead(models.Model):
 
     def __str__(self):
         return self.email
+    
+class Tag(models.Model):
+    """
+    Represents self-created tags.
+    """
+    tag = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.tag
+

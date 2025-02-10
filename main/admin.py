@@ -28,3 +28,9 @@ class LeadAdmin(admin.ModelAdmin):
     list_display = ('id', 'email', 'external_id', 'creation_date', 'first_name', 'last_name', 'first_source', 'last_source')
     list_filter = ('first_source', 'last_source')
     search_fields = ('email', 'external_id', 'first_name', 'last_name')
+
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):
+    list_display = ('id', 'tag')
+    search_fields = ('tag',)
+

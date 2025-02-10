@@ -1,13 +1,14 @@
-import django
 import os
+import glob
+import json
+import django
+
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hyrostool.settings')
 django.setup()
 
-from main.models import TrafficSource, AdSource, Source, Ad, Lead
 from django.conf import settings
-import glob
-import json
+from main.models import TrafficSource, AdSource, Source, Ad, Lead, Tag
 
 
 class AddJSONDataToModels:
@@ -19,7 +20,7 @@ class AddJSONDataToModels:
 
     def get_json_files(self, source):
         json_files = []
-        if source != 'leads':
+        if source not in ['leads', 'tags']:
             for integration in self.INTEGRATIONS:
                 source_path = os.path.join(self.BASE_DIR, source)
                 integration_path = os.path.join(source_path, integration)
@@ -142,9 +143,20 @@ class AddJSONDataToModels:
                     # if created:
                     #     print(f"Added Lead: {lead.email}")
 
+
+    def import_tags(self, json_files_path):
+        """Extract and insert tags"""
+        for tag_file in json_files_path:
+            with open(tag_file, "r") as file:
+                data = json.load(file)
+
+            for entry in data["result"]:
+                tag, created = Tag.objects.get_or_create(tag=entry)
+
 if __name__ == "__main__":
     json2db = AddJSONDataToModels()
-    output_list = ['sources', 'ads', 'leads']
+    # output_list = ['sources', 'ads', 'leads']
+    output_list = ['tags']
     for output in output_list:
         json_files_path = json2db.get_json_files(source=output)
         if output == "sources":
@@ -160,6 +172,9 @@ if __name__ == "__main__":
         elif output == "leads":
             json2db.import_leads(json_files_path=json_files_path)
             print(">>>>>>>>>>>leads done!!")
+        elif output == "tags":
+            json2db.import_tags(json_files_path=json_files_path)
+            print(">>>>>>>>>>>tags done!!")
 
     print("DONE!!!!!")
 
