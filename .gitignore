@@ -142,5 +142,8 @@ tmp
 /logs
 *.log
 *.sqlite3
-*.json
+*.json+
 /output/
+*.csv
+*.xls
+*.json
