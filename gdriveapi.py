@@ -13,37 +13,51 @@ django.setup()
 SERVICE_ACCOUNT_FILE = "galvanized-app-445607-e7-1604e087ad17.json"
 GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID")
 
-SCOPES = ["https://www.googleapis.com/auth/drive"]
+SCOPES = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/documents.readonly"]
 creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-drive_service = build("drive", "v3", credentials=creds)
 
-# Fetch Files from the Drive
-def list_files_in_folder(folder_id):
-    query = f"'{folder_id}' in parents and mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'"
-    results = drive_service.files().list(q=query, fields="files(id, name)").execute()
+drive_service = build("drive", "v3", credentials=creds)
+docs_service = build("docs", "v1", credentials=creds)
+
+# Fetch Google Docs files from the Drive
+def list_google_docs_in_folder(folder_id):
+    query = f"'{folder_id}' in parents and mimeType='application/vnd.google-apps.document'"
+    results = drive_service.files().list(q=query, fields="files(id, name, createdTime, size)").execute()
     return results.get("files", [])
 
-# Read File into Pandas
-def download_file(file_id):
-    request = drive_service.files().get_media(fileId=file_id)
-    file_stream = BytesIO()
-    downloader = MediaIoBaseDownload(file_stream, request)
-    done = False
-    while not done:
-        status, done = downloader.next_chunk()
-    file_stream.seek(0)
-    return file_stream
+# Extract text from Google Docs
+def get_document_text(doc_id):
+    document = docs_service.documents().get(documentId=doc_id).execute()
+    text = "".join(
+        content["paragraph"]["elements"][0].get("textRun", {}).get("content", "")
+        for content in document.get("body", {}).get("content", [])
+        if "paragraph" in content
+    )
+    return text
 
 # Process Files
-files = list_files_in_folder(GDRIVE_FOLDER_ID)
-if files:
-    for file in files:
-        print(f"Processing: {file['name']} ({file['id']})")
-        excel_data = download_file(file["id"])
-        df = pd.read_excel(excel_data, engine="openpyxl")
-        csv_filename = file["name"].replace(".xlsx", ".csv")
-        df.to_csv(csv_filename, index=False)
-        print(f"Saved: {csv_filename}")
+docs = list_google_docs_in_folder(GDRIVE_FOLDER_ID)
+if docs:
+    for doc in docs:
+        print(f"Processing: {doc['name']} ({doc['id']})")
+        
+        # Extract metadata
+        name = doc['name']
+        created_on = doc['createdTime']
+        size = doc.get('size', 'Unknown')
+        
+        # Extract content
+        text_content = get_document_text(doc['id'])
+        
+        # Save to text file
+        output_filename = f"{name}.txt"
+        with open(output_filename, "w", encoding="utf-8") as file:
+            file.write(f"Name - {name}\n")
+            file.write(f"Size - {size}\n")
+            file.write(f"Created on - {created_on}\n")
+            file.write(f"Content -\n{text_content}")
+        
+        print(f"Saved: {output_filename}")
 else:
-    print("No Excel files found in the folder.")
+    print("No Google Docs files found in the folder.")
 

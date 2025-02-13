@@ -11,6 +11,33 @@ class AdSourceAdmin(admin.ModelAdmin):
     list_display = ('id', 'ad_source_id', 'ad_account_id', 'platform')
     search_fields = ('ad_source_id', 'ad_account_id', 'platform')
 
+@admin.register(AdAccountAtrribution)
+class AdAccountAtrributionAdmin(admin.ModelAdmin):
+    list_display = (
+        'ad_source',
+        'attribution_model',
+        'clicks',
+        'cost',
+        'ctr',
+        'impressions',
+        'leads',
+        'profit',
+        'total_revenue',
+    )
+
+    search_fields = (
+        'ad_source',
+        'attribution_model',
+    )
+
+    list_filter = (
+        'end_date',
+        'start_date',
+        'attribution_model',
+    )
+
+    date_hierarchy = 'start_date'
+
 @admin.register(Source)
 class SourceAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'tag', 'disregarded', 'organic', 'ad_source', 'traffic_source', 'creation_date')

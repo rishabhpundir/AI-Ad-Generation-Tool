@@ -147,3 +147,5 @@ tmp
 *.csv
 *.xls
 *.json
+*.docx
+/ad_scripts/
