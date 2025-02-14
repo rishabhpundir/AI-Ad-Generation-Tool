@@ -1,0 +1,9 @@
+from django.contrib import admin
+from scriptdata.models import *
+
+# Register your models here.
+@admin.register(AdScript)
+class AdScriptAdmin(admin.ModelAdmin):
+    list_display = ('id', 'filename', 'ad_file', 'platform', 'ad_type', 'industry', 'content', 'created_at')
+    search_fields = ('filename', 'ad_file')
+

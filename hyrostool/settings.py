@@ -45,7 +45,7 @@ INSTALLED_APPS = [
 
 PACKAGES = ['rest_framework']
 
-CUSTOM_APPS = ['main']
+CUSTOM_APPS = ['main', 'scriptdata']
 
 INSTALLED_APPS += PACKAGES + CUSTOM_APPS
 
