@@ -1,14 +1,17 @@
 import os
-import re
 import django
-from docx import Document
-from django.conf import settings
-from scriptdata.models import AdScript
-
 
 # Django Setup
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hyrostool.settings')
 django.setup()
+
+from docx import Document
+from django.conf import settings
+from django.core.files import File
+from scriptdata.models import AdScript
+
+
+INTEGRATIONS = ('FACEBOOK', 'FB', 'YT', 'YOUTUBE', 'GOOGLE', 'SNAPCHAT', 'TIKTOK', 'TWITTER', 'LINKEDIN')
 
 
 def extract_metadata_from_filename(filename):
@@ -21,12 +24,9 @@ def extract_metadata_from_filename(filename):
         "industry": None,
     }
 
-    if "Youtube" in filename:
-        metadata["platform"] = "YouTube"
-    elif "FB" in filename or "Facebook" in filename:
-        metadata["platform"] = "Facebook"
-    elif "Google" in filename:
-        metadata["platform"] = "Google"
+    for name in INTEGRATIONS:
+        if name.lower() in filename.lower():
+            metadata["platform"] = name
 
     # Extract ad type from keywords
     if "UGC" in filename:
@@ -98,13 +98,19 @@ def process_docx(file_path):
     industry = metadata_from_content.get("industry") or metadata_from_filename.get("industry")
 
     # Save to Django model
-    ad_script = AdScript.objects.create(
-        filename=filename,
-        platform=platform,
-        ad_type=ad_type,
-        industry=industry,
-        content=text_content
-    )
+    # Open the file in binary mode
+    with open(file_path, 'rb') as f:
+        django_file = File(f)
+        ad_script = AdScript.objects.get_or_create(
+            filename=filename,
+            defaults={
+                "platform": platform,
+                "ad_type": ad_type,
+                "industry": industry,
+                "content": text_content
+            }
+        )
+        ad_script[0].ad_file.save(os.path.basename(file_path), django_file, save=True)
     print(f"Saved to database: {filename} (Platform: {platform}, Ad Type: {ad_type}, Industry: {industry})")
 
 
