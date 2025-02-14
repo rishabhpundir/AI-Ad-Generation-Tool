@@ -9,6 +9,7 @@ from docx import Document
 from django.conf import settings
 from django.core.files import File
 from scriptdata.models import AdScript
+from scriptdata.utils.embeddings import generate_embedding, index
 
 
 INTEGRATIONS = ('FACEBOOK', 'FB', 'YT', 'YOUTUBE', 'GOOGLE', 'SNAPCHAT', 'TIKTOK', 'TWITTER', 'LINKEDIN')
@@ -87,18 +88,13 @@ def process_docx(file_path):
     """
     filename = os.path.basename(file_path)
     text_content = extract_text_from_docx(file_path)
-
-    # Extract metadata
     metadata_from_filename = extract_metadata_from_filename(filename)
     metadata_from_content = extract_metadata_from_content(text_content)
 
     # Combine metadata sources
-    platform = metadata_from_filename.get("platform")
-    ad_type = metadata_from_filename.get("ad_type")
-    industry = metadata_from_content.get("industry") or metadata_from_filename.get("industry")
-
-    # Save to Django model
-    # Open the file in binary mode
+    platform = metadata_from_filename.get("platform", "") or ""
+    ad_type = metadata_from_filename.get("ad_type", "") or ""
+    industry = metadata_from_content.get("industry", "") or metadata_from_filename.get("industry", "") or ""
     with open(file_path, 'rb') as f:
         django_file = File(f)
         ad_script = AdScript.objects.get_or_create(
@@ -111,7 +107,11 @@ def process_docx(file_path):
             }
         )
         ad_script[0].ad_file.save(os.path.basename(file_path), django_file, save=True)
-    print(f"Saved to database: {filename} (Platform: {platform}, Ad Type: {ad_type}, Industry: {industry})")
+
+    # Generate embedding & save to pinecone
+    embedding_vector = generate_embedding(text_content)
+    index.upsert([(filename, embedding_vector, {"platform": platform, "ad_type": ad_type, "industry": industry})])
+    print(f"Saved: {filename} → Pinecone (Platform: {platform}, Ad Type: {ad_type}, Industry: {industry})")
 
 
 def batch_process_docs(input_folder):
