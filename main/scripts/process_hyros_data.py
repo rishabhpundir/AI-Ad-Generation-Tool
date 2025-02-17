@@ -1,14 +1,41 @@
 import os
+import sys
 import glob
 import json
 import django
-
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hyrostool.settings')
-django.setup()
-
+import logging
 from django.conf import settings
+from django.db import connection, transaction
+
+def setup_django():
+    """Ensures Django settings are configured before using ORM or settings."""
+    project_path =  os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.append(project_path)
+    if not settings.configured:
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hyrostool.settings')
+        django.setup()
+
+# Setup
+setup_django()
+from django.db import connection, transaction
 from main.models import TrafficSource, AdSource, Source, Ad, Lead, Tag
+
+
+# Logging configuration
+LOG_DIR = os.path.join(settings.BASE_DIR, 'logs')
+os.makedirs(LOG_DIR, exist_ok=True)
+
+log_file_path = os.path.join(LOG_DIR, 'process_hyros_data_log.log')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file_path),  # Log to a file
+        logging.StreamHandler(sys.stdout)    # Log to console
+    ]
+)
+logger = logging.getLogger(__name__)
+
 
 
 class AddJSONDataToModels:
@@ -31,6 +58,7 @@ class AddJSONDataToModels:
             json_files.extend(glob.glob(os.path.join(integration_path, "*.json")))
         return json_files
 
+    @transaction.atomic
     def import_traffic_sources(self, json_files_path):
         """Extract and insert Traffic Sources"""
         for source_file in json_files_path:
@@ -49,6 +77,7 @@ class AddJSONDataToModels:
                 # if created:
                 #     print(f"Added Traffic Source: {traffic_source_name}")
 
+    @transaction.atomic
     def import_ad_sources(self, json_files_path):
         """Extract and insert Ad Sources from Sources JSON"""
         for source_file in json_files_path:
@@ -69,6 +98,7 @@ class AddJSONDataToModels:
                 # if created:
                 #     print(f"Added Ad Source: {platform} - {ad_source_id}")
 
+    @transaction.atomic
     def import_sources(self, json_files_path):
         """Extract and insert Sources"""
         for source_file in json_files_path:
@@ -94,6 +124,7 @@ class AddJSONDataToModels:
                 # if created:
                 #     print(f"Added Source: {source.name}")
 
+    @transaction.atomic
     def import_ads(self, json_files_path):
         """Extract and insert Ads"""
         for ad_file in json_files_path:
@@ -114,6 +145,7 @@ class AddJSONDataToModels:
                     # if created:
                     #     print(f"Added Ad: {ad.name}")
 
+    @transaction.atomic
     def import_leads(self, json_files_path):
         """Extract and insert Leads"""
         for lead_file in json_files_path:
@@ -143,7 +175,7 @@ class AddJSONDataToModels:
                     # if created:
                     #     print(f"Added Lead: {lead.email}")
 
-
+    @transaction.atomic
     def import_tags(self, json_files_path):
         """Extract and insert tags"""
         for tag_file in json_files_path:
@@ -153,29 +185,35 @@ class AddJSONDataToModels:
             for entry in data["result"]:
                 tag, created = Tag.objects.get_or_create(tag=entry)
 
-if __name__ == "__main__":
-    json2db = AddJSONDataToModels()
-    # output_list = ['sources', 'ads', 'leads']
-    output_list = ['tags']
-    for output in output_list:
-        json_files_path = json2db.get_json_files(source=output)
-        if output == "sources":
-            json2db.import_traffic_sources(json_files_path=json_files_path)
-            print(">>>>>>>>>>>traffic source done!!")
-            json2db.import_ad_sources(json_files_path=json_files_path)
-            print(">>>>>>>>>>>ad source done!!")
-            json2db.import_sources(json_files_path=json_files_path)
-            print(">>>>>>>>>>>source done!!")
-        elif output == "ads":
-            json2db.import_ads(json_files_path=json_files_path)
-            print(">>>>>>>>>>>ads done!!")
-        elif output == "leads":
-            json2db.import_leads(json_files_path=json_files_path)
-            print(">>>>>>>>>>>leads done!!")
-        elif output == "tags":
-            json2db.import_tags(json_files_path=json_files_path)
-            print(">>>>>>>>>>>tags done!!")
 
-    print("DONE!!!!!")
+
+if __name__ == "__main__":
+    try:
+        json2db = AddJSONDataToModels()
+        output_list = ['sources', 'ads', 'leads', 'tags']
+        for output in output_list:
+            json_files_path = json2db.get_json_files(source=output)
+            if output == "sources":
+                json2db.import_traffic_sources(json_files_path=json_files_path)
+                logger.info("Read & saved traffic JSONe done!!")
+                json2db.import_ad_sources(json_files_path=json_files_path)
+                logger.info("Read & saved ad JSONe done!!")
+                json2db.import_sources(json_files_path=json_files_path)
+                logger.info("Read & saved source JSON!")
+            elif output == "ads":
+                json2db.import_ads(json_files_path=json_files_path)
+                logger.info("Read & saved ads JSON!")
+            elif output == "leads":
+                json2db.import_leads(json_files_path=json_files_path)
+                logger.info("Read & saved leads JSON!")
+            elif output == "tags":
+                json2db.import_tags(json_files_path=json_files_path)
+                logger.info("Read & saved tags JSON!")
+
+        logger.info("DONE!!!!!")
+    except Exception as e:
+        logger.info(f"Error while reading Hyros JSON data: {e}", exc_info=True)
+    finally:
+        connection.close()
 
 

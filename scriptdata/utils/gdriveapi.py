@@ -1,13 +1,16 @@
 import os
 import django
-import pandas as pd
-from io import BytesIO
+
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hyrostool.settings')
+django.setup()
+
+import re
+from django.conf import settings
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hyrostool.settings')
-django.setup()
 
 # Google Drive API Config
 SERVICE_ACCOUNT_FILE = "galvanized-app-445607-e7-1604e087ad17.json"
@@ -50,8 +53,9 @@ if docs:
         text_content = get_document_text(doc['id'])
         
         # Save to text file
-        output_filename = f"{name}.txt"
-        with open(output_filename, "w", encoding="utf-8") as file:
+        output_filename = re.sub(r'[\/:*?"<>|]', '_', f"{name}.txt")
+        output_filepath = os.path.join(settings.BASE_DIR, output_filename)
+        with open(output_filepath, "w+", encoding="utf-8") as file:
             file.write(f"Name - {name}\n")
             file.write(f"Size - {size}\n")
             file.write(f"Created on - {created_on}\n")

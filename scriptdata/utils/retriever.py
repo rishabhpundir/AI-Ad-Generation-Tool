@@ -16,14 +16,14 @@ def retrieve_similar_ads(query, top_n=5):
 
     retrieved_ads = []
     for match in results["matches"]:
-        metadata = match.get("metadata", {})  # ✅ Ensure metadata exists
+        metadata = match.get("metadata", {})
 
         retrieved_ads.append({
             "filename": match["id"],
             "platform": metadata.get("platform", ""),
             "ad_type": metadata.get("ad_type", ""),
             "industry": metadata.get("industry", ""),
-            "score": match.get("score", 0.0)  # ✅ Default to 0.0 if score is missing
+            "score": match.get("score", 0.0)
         })
 
     return retrieved_ads
