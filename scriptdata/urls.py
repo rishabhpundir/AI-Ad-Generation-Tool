@@ -1,7 +1,6 @@
 from django.urls import path
-from scriptdata.views import generate_ad
-
+from scriptdata.views import GenerateAdView
 
 urlpatterns = [
-    path("generate-ad/", generate_ad, name="generate_ad"),
+    path("generate/", GenerateAdView.as_view(), name="generate_ad"),
 ]

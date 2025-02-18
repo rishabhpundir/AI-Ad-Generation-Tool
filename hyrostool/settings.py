@@ -43,7 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 ]
 
-PACKAGES = ['rest_framework']
+PACKAGES = ['rest_framework', 'drf_yasg']
 
 CUSTOM_APPS = ['main', 'scriptdata']
 

@@ -149,3 +149,4 @@ tmp
 *.json
 *.docx
 /ad_scripts/
+/temp/

@@ -1,18 +1,61 @@
 import os
+import re
+import io
+import sys
+import shutil
 import django
-
-# Django Setup
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hyrostool.settings')
-django.setup()
-
+import logging
 from docx import Document
 from django.conf import settings
 from django.core.files import File
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from django.db import connection, transaction
+from googleapiclient.http import MediaIoBaseDownload
+
+
+# Setup
+def setup_django():
+    """Ensures Django settings are configured before using ORM or settings."""
+    project_path =  os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    sys.path.append(project_path)
+    if not settings.configured:
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hyrostool.settings')
+        django.setup()
+
+setup_django()
 from scriptdata.models import AdScript
 from scriptdata.utils.embeddings import generate_embedding, index
 
 
+# Logging
+LOG_DIR = os.path.join(settings.BASE_DIR, 'logs')
+os.makedirs(LOG_DIR, exist_ok=True)
+log_file_path = os.path.join(LOG_DIR, 'process_gdrive_adscripts_log.log')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file_path),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+logger = logging.getLogger(__name__)
+
+
+# Config
+SERVICE_ACCOUNT_FILE = "galvanized-app-445607-e7-1604e087ad17.json"
+GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID")
+
+SCOPES = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/documents.readonly"]
+creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+
+drive_service = build("drive", "v3", credentials=creds)
+docs_service = build("docs", "v1", credentials=creds)
 INTEGRATIONS = ('FACEBOOK', 'FB', 'YT', 'YOUTUBE', 'GOOGLE', 'SNAPCHAT', 'TIKTOK', 'TWITTER', 'LINKEDIN')
+TEMP_FOLDER = os.path.join(settings.BASE_DIR, "temp")
+os.makedirs(TEMP_FOLDER, exist_ok=True)
 
 
 def extract_metadata_from_filename(filename):
@@ -82,6 +125,7 @@ def extract_text_from_docx(file_path):
     return text
 
 
+@transaction.atomic
 def process_docx(file_path):
     """
     Processes a .docx file, extracts metadata, and saves to the database.
@@ -118,13 +162,59 @@ def batch_process_docs(input_folder):
     """
     Processes all .docx files in the given folder and saves them to the database.
     """
+    logger.info("Initiating batch processing of ad script docx...")
     for filename in os.listdir(input_folder):
+        logger.info(f"Processing Doc: {filename}")
         if filename.endswith(".docx"):
             file_path = os.path.join(input_folder, filename)
             process_docx(file_path)
 
 
-if __name__ == "__main__":
-    ad_scripts_folder = os.path.join(settings.BASE_DIR, "ad_scripts")
-    batch_process_docs(ad_scripts_folder)
-    print("Processing Complete!")
+def list_google_docs(folder_id):
+    """Function to get Google Docs from the specific folder"""
+    query = f"'{folder_id}' in parents and mimeType='application/vnd.google-apps.document'"
+    results = drive_service.files().list(q=query, fields="files(id, name)").execute()
+    return results.get('files', [])
+
+
+def fetch_gdrive_docs(file_id, file_name):
+    """Function to download and save Google Docs as DOCX"""
+    request = drive_service.files().export_media(fileId=file_id, mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    file_stream = io.BytesIO()
+    downloader = MediaIoBaseDownload(file_stream, request)
+    done = False
+    while not done:
+        status, done = downloader.next_chunk()
+    
+    # Save DOCX file
+    output_filename = re.sub(r'[\/:*?"<>|]', '_', f"{file_name}.docx")
+    logger.info(f"Processing: {file_name} ({file_id}) --> {output_filename}.docx")
+    file_path = os.path.join(TEMP_FOLDER, output_filename)
+    with open(file_path, "wb") as f:
+        f.write(file_stream.getvalue())
+
+
+def process_google_ad_scripts(limit=None):
+    docs = list_google_docs(GDRIVE_FOLDER_ID)[:limit]
+    if not docs:
+        logger.info("No Google Docs found in the specified folder.")
+    else:
+        for doc in docs:
+            fetch_gdrive_docs(doc['id'], doc['name'])
+
+        logger.info("Initiating batch processing...")
+        batch_process_docs(TEMP_FOLDER)
+        if os.path.exists(TEMP_FOLDER):
+            shutil.rmtree(TEMP_FOLDER)
+        logger.info("Processing Complete!")
+
+
+if __name__ == '__main__':
+    try:
+        process_google_ad_scripts(limit=10)
+    except Exception as e:
+        logger.error(f"Error while processing google ad scripts: ", exc_info=True)
+    finally:
+        connection.close()
+
+
