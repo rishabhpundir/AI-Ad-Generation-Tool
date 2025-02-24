@@ -3,6 +3,7 @@ from django.db import models
 
 class AdScript(models.Model):
     filename = models.CharField(max_length=255)
+    file_id = models.CharField(max_length=255, null=True, blank=True)
     ad_file = models.FileField(upload_to="adscripts/")
     platform = models.CharField(max_length=50, null=True, blank=True)
     ad_type = models.CharField(max_length=50, null=True, blank=True)

@@ -29,12 +29,16 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["127.0.0.1", "stillbloom.urtestsite.com", "www.stillbloom.urtestsite.com",]
+ALLOWED_HOSTS = ["*", "127.0.0.1", "stillbloom.urtestsite.com", "www.stillbloom.urtestsite.com",]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://stillbloom.urtestsite.com",
     "http://stillbloom.urtestsite.com",
 ]
+
+# SWAGGER_SETTINGS = {
+#     "DEFAULT_API_URL": "https://xyz.com",  # Change this to your domain
+# }
 
 
 # Application definition
@@ -134,7 +138,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'staticfiles/'
+STATIC_URL = '/staticfiles/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -148,3 +152,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 HYROS_API_KEY = os.environ.get('HYROS_API_KEY')
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+GDRIVE_FOLDER_ID = os.environ.get('GDRIVE_FOLDER_ID')

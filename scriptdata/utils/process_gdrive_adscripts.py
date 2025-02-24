@@ -2,10 +2,14 @@ import os
 import re
 import io
 import sys
+import time
 import shutil
 import django
+import random
 import logging
-from docx import Document
+import zipfile
+import webcolors
+from bs4 import BeautifulSoup
 from django.conf import settings
 from django.core.files import File
 from google.oauth2 import service_account
@@ -32,22 +36,20 @@ from scriptdata.utils.embeddings import generate_embedding, index
 LOG_DIR = os.path.join(settings.BASE_DIR, 'logs')
 os.makedirs(LOG_DIR, exist_ok=True)
 log_file_path = os.path.join(LOG_DIR, 'process_gdrive_adscripts_log.log')
+file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.stream.reconfigure(encoding="utf-8")
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_file_path),
-        logging.StreamHandler(sys.stdout)
-    ]
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[file_handler, stream_handler],
 )
-
 logger = logging.getLogger(__name__)
 
 
 # Config
 SERVICE_ACCOUNT_FILE = "galvanized-app-445607-e7-1604e087ad17.json"
-GDRIVE_FOLDER_ID = os.environ.get("GDRIVE_FOLDER_ID")
-
+GDRIVE_FOLDER_ID = settings.GDRIVE_FOLDER_ID
 SCOPES = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/documents.readonly"]
 creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 
@@ -58,160 +60,257 @@ TEMP_FOLDER = os.path.join(settings.BASE_DIR, "temp")
 os.makedirs(TEMP_FOLDER, exist_ok=True)
 
 
-def extract_metadata_from_filename(filename):
-    """
-    Extract metadata from the filename.
-    """
-    metadata = {
-        "platform": None,
-        "ad_type": None,
-        "industry": None,
-    }
 
-    for name in INTEGRATIONS:
-        if name.lower() in filename.lower():
-            metadata["platform"] = name
-
-    # Extract ad type from keywords
-    if "UGC" in filename:
-        metadata["ad_type"] = "User-Generated Content"
-    elif "Expert" in filename:
-        metadata["ad_type"] = "Expert Interview"
-    elif "Testimonial" in filename:
-        metadata["ad_type"] = "Testimonial"
-    return metadata
+class ExtractAd:
+    def __init__(self):
+        pass
 
 
-def extract_metadata_from_content(text):
-    """
-    Extract industry and additional metadata from the script content.
-    """
-    metadata = {
-        "industry": None
-    }
-
-    # Common industry keywords
-    industry_keywords = {
-        "skincare": ["skin", "moisturizer", "wrinkles", "collagen"],
-        "fitness": ["workout", "exercise", "protein", "gym"],
-        "finance": ["investment", "money", "trading", "credit score"],
-        "tech": ["AI", "software", "machine learning"]
-    }
-
-    for industry, keywords in industry_keywords.items():
-        if any(keyword in text.lower() for keyword in keywords):
-            metadata["industry"] = industry
-            break
-    return metadata
+    # GET HTML FILES FROM GOOGLE DRIVE
+    def list_google_docs(self, folder_id):
+        """Function to get Google Docs from the specific folder"""
+        query = f"'{folder_id}' in parents and mimeType='application/vnd.google-apps.document'"
+        results = drive_service.files().list(q=query, fields="files(id, name)").execute()
+        return results.get('files', [])
 
 
-def remove_highlighted_text(doc):
-    """
-    Removes words/lines that are highlighted in red from the document.
-    """
-    for para in doc.paragraphs:
-        for run in para.runs:
-            if run.font.highlight_color and run.font.highlight_color == 6:  # 6 = 'RED' in python-docx
-                run.text = ""
-    return doc
-
-def extract_text_from_docx(file_path):
-    """
-    Extracts text from a .docx file and returns it as a string.
-    """
-    doc = Document(file_path)
-    doc = remove_highlighted_text(doc)
-    text = "\n".join([para.text.strip() for para in doc.paragraphs if para.text.strip()])
-    return text
-
-
-@transaction.atomic
-def process_docx(file_path):
-    """
-    Processes a .docx file, extracts metadata, and saves to the database.
-    """
-    filename = os.path.basename(file_path)
-    text_content = extract_text_from_docx(file_path)
-    metadata_from_filename = extract_metadata_from_filename(filename)
-    metadata_from_content = extract_metadata_from_content(text_content)
-
-    # Combine metadata sources
-    platform = metadata_from_filename.get("platform", "") or ""
-    ad_type = metadata_from_filename.get("ad_type", "") or ""
-    industry = metadata_from_content.get("industry", "") or metadata_from_filename.get("industry", "") or ""
-    with open(file_path, 'rb') as f:
-        django_file = File(f)
-        ad_script = AdScript.objects.get_or_create(
-            filename=filename,
-            defaults={
-                "platform": platform,
-                "ad_type": ad_type,
-                "industry": industry,
-                "content": text_content
-            }
+    def fetch_gdrive_docs(self, file_id, file_name):
+        """Function to download and save Google Docs as HTML Web Page"""
+        request = drive_service.files().export_media(
+            fileId=file_id,
+            mimeType='application/zip'  # Export as ZIP (contains HTML + assets)
         )
-        ad_script[0].ad_file.save(os.path.basename(file_path), django_file, save=True)
+        file_stream = io.BytesIO()
+        downloader = MediaIoBaseDownload(file_stream, request)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+        file_stream.seek(0)
 
-    # Generate embedding & save to pinecone
-    embedding_vector = generate_embedding(text_content)
-    index.upsert([(filename, embedding_vector, {"platform": platform, "ad_type": ad_type, "industry": industry})])
-    print(f"Saved: {filename} → Pinecone (Platform: {platform}, Ad Type: {ad_type}, Industry: {industry})")
+        # Extract ZIP contents
+        with zipfile.ZipFile(file_stream, 'r') as zip_ref:
+            html_files = [f for f in zip_ref.namelist() if f.endswith('.html')]  # Find HTML file
+            
+            if not html_files:
+                logger.warning(f"No HTML file found in the exported ZIP for {file_name}")
+                return
 
+            html_filename = html_files[0]
+            extracted_html = zip_ref.read(html_filename)
 
-def batch_process_docs(input_folder):
-    """
-    Processes all .docx files in the given folder and saves them to the database.
-    """
-    logger.info("Initiating batch processing of ad script docx...")
-    for filename in os.listdir(input_folder):
-        logger.info(f"Processing Doc: {filename}")
-        if filename.endswith(".docx"):
-            file_path = os.path.join(input_folder, filename)
-            process_docx(file_path)
-
-
-def list_google_docs(folder_id):
-    """Function to get Google Docs from the specific folder"""
-    query = f"'{folder_id}' in parents and mimeType='application/vnd.google-apps.document'"
-    results = drive_service.files().list(q=query, fields="files(id, name)").execute()
-    return results.get('files', [])
-
-
-def fetch_gdrive_docs(file_id, file_name):
-    """Function to download and save Google Docs as DOCX"""
-    request = drive_service.files().export_media(fileId=file_id, mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-    file_stream = io.BytesIO()
-    downloader = MediaIoBaseDownload(file_stream, request)
-    done = False
-    while not done:
-        status, done = downloader.next_chunk()
-    
-    # Save DOCX file
-    output_filename = re.sub(r'[\/:*?"<>|]', '_', f"{file_name}.docx")
-    logger.info(f"Processing: {file_name} ({file_id}) --> {output_filename}.docx")
-    file_path = os.path.join(TEMP_FOLDER, output_filename)
-    with open(file_path, "wb") as f:
-        f.write(file_stream.getvalue())
+        # Clean filename
+        output_filename = re.sub(r'[\/:*?"<>|]', '_', f"{file_name}")
+        output_filename = output_filename.replace(
+                                " ", "_").replace(
+                                "__", "_").replace(
+                                "__", "_").replace(
+                                "_-_", "_")
+        output_filename = f"{output_filename}__{file_id}.html"
+        file_path = os.path.join(TEMP_FOLDER, output_filename)
+        with open(file_path, "wb") as f:
+            f.write(extracted_html)
+        logger.info(f"Processed: {file_name} ({file_id}) --> {output_filename}")
 
 
-def process_google_ad_scripts(limit=None):
-    docs = list_google_docs(GDRIVE_FOLDER_ID)[:limit]
-    if not docs:
-        logger.info("No Google Docs found in the specified folder.")
-    else:
-        for doc in docs:
-            fetch_gdrive_docs(doc['id'], doc['name'])
+    # HIGHLIGHT DETECTION
+    def get_rgb(self, color):
+        try:
+            if color.startswith("#"):
+                return webcolors.hex_to_rgb(color)
+            else:
+                return webcolors.name_to_rgb(color)
+        except ValueError:
+            return None
 
-        logger.info("Initiating batch processing...")
-        batch_process_docs(TEMP_FOLDER)
-        if os.path.exists(TEMP_FOLDER):
-            shutil.rmtree(TEMP_FOLDER)
-        logger.info("Processing Complete!")
+
+    def is_gray(self, rgb):
+        if rgb:
+            r, g, b = rgb.red, rgb.green, rgb.blue
+            return abs(r - 153) <= 60 and abs(g - 153) <= 60 and abs(b - 153) <= 60
+
+
+    def is_red(self, rgb):
+        if rgb:
+            r, g, b = rgb.red, rgb.green, rgb.blue
+            return r >= 200 and g <= 25 and b <= 25
+
+
+    def extract_from_html(self, file_path):
+        if file_path.endswith(".html"):
+            with open(file_path, "r", encoding="utf-8") as file:
+                soup = BeautifulSoup(file, "html.parser")
+
+            all_colors = {}
+            style_tag = soup.find("style")
+
+            if style_tag:
+                css_text = style_tag.get_text()
+                class_patterns = re.findall(r"(\.c\d+)\s*\{([^}]*)\}", css_text)
+
+                for class_name, styles in class_patterns:
+                    colors_found = []
+                    color_matches = re.findall(r"(color|background-color)\s*:\s*([^;]+);?", styles)
+
+                    for _, color_value in color_matches:
+                        rgb = self.get_rgb(color_value.strip())
+                        if rgb:
+                            colors_found.append(color_value.strip())
+
+                    if colors_found:
+                        all_colors[class_name[1:]] = colors_found
+
+            # Classes to exclude (gray or red)
+            excluded_classes = {
+                cls for cls, colors in all_colors.items()
+                if any(self.is_gray(self.get_rgb(c)) or self.is_red(self.get_rgb(c)) for c in colors)
+            }
+
+            for elem in soup.find_all(class_=True):
+                elem_classes = list(set(elem.get("class", [])))
+                if any(cls in excluded_classes for cls in elem_classes):
+                    elem.decompose()  
+
+            # Remove text inside anchor tags
+            for a_tag in soup.find_all("a"):
+                a_tag.string = ""
+
+            # Remove excessive newlines and spaces
+            cleaned_text = soup.get_text("\n", strip=True)
+            cleaned_text = re.sub(r"\n{2,}", "\n\n", cleaned_text)
+            cleaned_text = re.sub(r" {4,}", " ", cleaned_text)
+
+            # **Instruction Removal Logic**
+            lines = cleaned_text.split("\n")
+            script_index = next(
+                (i for i, line in enumerate(lines) if re.match(r"^\s*(script|scripts)\s*:?\s*$", line, re.IGNORECASE)),
+                None
+            )
+
+            if script_index is not None:
+                lines = lines[script_index + 1:]
+            cleaned_text = "\n".join(lines)
+            return cleaned_text
+        else:
+            return ''
+        
+
+    # FILE METADATA
+    def extract_metadata_from_filename(self, filename):
+        """
+        Extract metadata from the filename.
+        """
+        metadata = {
+            "platform": None,
+            "ad_type": None,
+            "industry": None,
+        }
+        for name in INTEGRATIONS:
+            if name.lower() in filename.lower():
+                metadata["platform"] = name
+
+        # Extract ad type from keywords
+        if "UGC" in filename:
+            metadata["ad_type"] = "User-Generated Content"
+        elif "Expert" in filename:
+            metadata["ad_type"] = "Expert Interview"
+        elif "Testimonial" in filename:
+            metadata["ad_type"] = "Testimonial"
+        return metadata
+        
+
+    def extract_metadata_from_content(self, text):
+        """
+        Extract industry and additional metadata from the script content.
+        """
+        metadata = {
+            "industry": None
+        }
+
+        # Common industry keywords
+        industry_keywords = {
+            "skincare": ["skin", "moisturizer", "wrinkles", "collagen"],
+            "fitness": ["workout", "exercise", "protein", "gym"],
+            "finance": ["investment", "money", "trading", "credit score"],
+            "tech": ["AI", "software", "machine learning"]
+        }
+
+        for industry, keywords in industry_keywords.items():
+            if any(keyword in text.lower() for keyword in keywords):
+                metadata["industry"] = industry
+                break
+        return metadata
+        
+
+    # ADD DATA TO DATABASE
+    @transaction.atomic
+    def process_docx(self, file_path):
+        """
+        Processes HTML file, extracts metadata, and saves to the database.
+        """
+        filename = os.path.basename(p=file_path)
+        file_id = filename.rsplit("__", 1)[-1].rsplit(".", 1)[0]
+        text_content = self.extract_from_html(file_path=file_path)
+        metadata_from_filename = self.extract_metadata_from_filename(filename=filename)
+        metadata_from_content = self.extract_metadata_from_content(text=text_content)
+
+        # Combine metadata sources
+        platform = metadata_from_filename.get("platform", "") or ""
+        ad_type = metadata_from_filename.get("ad_type", "") or ""
+        industry = metadata_from_content.get("industry", "") or metadata_from_filename.get("industry", "") or ""
+        with open(file_path, 'rb') as f:
+            django_file = File(f)
+            ad_script = AdScript.objects.get_or_create(
+                filename=filename,
+                file_id=file_id,
+                defaults={
+                    "platform": platform,
+                    "ad_type": ad_type,
+                    "industry": industry,
+                    "content": text_content
+                }
+            )
+            ad_script[0].ad_file.save(os.path.basename(file_path), django_file, save=True)
+
+        # Generate embedding & save to pinecone
+        embedding_vector = generate_embedding(text_content)
+        index.upsert([(filename, embedding_vector, {"platform": platform, "ad_type": ad_type, "industry": industry})])
+        logger.info(f"Saved: {filename} → Pinecone (Platform: {platform}, Ad Type: {ad_type}, Industry: {industry})")
+
+
+    def batch_process_docs(self, input_folder):
+        """
+        Processes all .docx files in the given folder and saves them to the database.
+        """
+        logger.info("Initiating batch processing of ad script docx...")
+        for filename in os.listdir(input_folder):
+            wait_time = random.randint(5, 10)
+            logger.info(f"Processing Doc: {filename}")
+            if filename.endswith(".html"):
+                file_path = os.path.join(input_folder, filename)
+                self.process_docx(file_path)
+            time.sleep(wait_time)
+
+
+    def process_google_ad_scripts(self, limit=None):
+        docs = self.list_google_docs(folder_id=GDRIVE_FOLDER_ID)
+        if not docs:
+            logger.info("No Google Docs found in the specified folder.")
+        else:
+            for doc in docs[:limit]:
+                self.fetch_gdrive_docs(doc['id'], doc['name'])
+
+            logger.info("Initiating batch processing...")
+            self.batch_process_docs(input_folder=TEMP_FOLDER)
+            if os.path.exists(TEMP_FOLDER):
+                shutil.rmtree(TEMP_FOLDER)
+            logger.info("Processing Complete!")
 
 
 if __name__ == '__main__':
     try:
-        process_google_ad_scripts(limit=10)
+        ad_extracter = ExtractAd()
+        ad_extracter.process_google_ad_scripts(limit=200)
+        logger.info("Processing Complete!")
     except Exception as e:
         logger.error(f"Error while processing google ad scripts: ", exc_info=True)
     finally:
