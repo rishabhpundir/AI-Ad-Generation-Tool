@@ -27,7 +27,7 @@ urlpatterns = [
     path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="redoc"),
     re_path(r"^swagger(?P<format>\.json|\.yaml)$", schema_view.without_ui(cache_timeout=0), name="schema-json"),
     path('admin/', admin.site.urls),
-    path('/', include('main.urls')),
+    path('', include('main.urls')),
     path('ad/', include('scriptdata.urls')),
 ]
 

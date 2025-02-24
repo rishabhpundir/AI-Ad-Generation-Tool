@@ -273,7 +273,8 @@ class ExtractAd:
 
         # Generate embedding & save to pinecone
         embedding_vector = generate_embedding(text_content)
-        index.upsert([(filename, embedding_vector, {"platform": platform, "ad_type": ad_type, "industry": industry})])
+        index.upsert([(filename, embedding_vector, {"file_id": file_id, "platform": platform, 
+                                                    "ad_type": ad_type, "industry": industry})])
         logger.info(f"Saved: {filename} → Pinecone (Platform: {platform}, Ad Type: {ad_type}, Industry: {industry})")
 
 

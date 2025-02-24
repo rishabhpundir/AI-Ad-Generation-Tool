@@ -20,6 +20,7 @@ def retrieve_similar_ads(query, top_n=5):
 
         retrieved_ads.append({
             "filename": match["id"],
+            "file_id": metadata.get("file_id", ""),
             "platform": metadata.get("platform", ""),
             "ad_type": metadata.get("ad_type", ""),
             "industry": metadata.get("industry", ""),

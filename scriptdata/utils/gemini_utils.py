@@ -6,7 +6,9 @@ import django
 project_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(project_path)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hyrostool.settings')
+
 django.setup()
+from scriptdata.models import AdScript
 
 import grpc
 from django.conf import settings
@@ -31,14 +33,17 @@ def generate_ad_script(user_query, retrieved_ads):
         str: The generated ad script from Gemini.
     """
     # Step 1: Format the retrieved ads as context for Gemini
-    context = "Below are past ad scripts related to your request:\n\n"
-    
-    for i, ad in enumerate(retrieved_ads, start=1):
-        context += f"--- Ad {i} ---\n"
-        context += f"Platform: {ad.get('platform', 'Unknown')}\n"
-        context += f"Ad Type: {ad.get('ad_type', 'Unknown')}\n"
-        context += f"Industry: {ad.get('industry', 'Unknown')}\n"
-        context += f"Script:\n{ad.get('content', '')}\n\n"
+    context = "Below are past ad scripts related to the request:\n\n"
+    context += "*" * 50 + "\n"
+    for i, ad_ in enumerate(retrieved_ads, start=1):
+        ad = AdScript.objects.filter(filename=ad_.get('filename')).first()
+        if ad:
+            context += f"--- Ad {i} ---\n"
+            context += f"Platform: {ad.platform}\n"
+            context += f"Ad Type: {ad.ad_type}\n"
+            context += f"Industry: {ad.industry}\n"
+            context += f"Script:\n{ad.content}\n\n"
+    context += "*" * 50
 
     # Step 2: Define the prompt for Gemini
     prompt = f"""
