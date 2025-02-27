@@ -171,11 +171,11 @@ class FetchHyrosData:
                 next_page = False
             num += 1
 
-    @transaction.atomic
+    # @transaction.atomic
     def get_ad_account_attribution(self, attribution_model, start_date, end_date):
         fields = "cost,impressions,clicks,ctr,cost_per_click,leads,cost_per_lead,sales,cost_per_sale,unique_sales,cost_per_unique_sale,aov,roas,total_revenue,profit"
         currency = "user_currency"
-        ad_sources = AdSource.objects.filter(platform="GOOGLE")
+        ad_sources = AdSource.objects.all()
         for ad_source in ad_sources:
             platform = ad_source.platform.lower()
             ad_account_id = ad_source.ad_account_id
@@ -207,31 +207,32 @@ class FetchHyrosData:
                 unique_sales = data.get("result")[0]["unique_sales"]
                 end_date = data.get("result")[0]["end_date"]
                 start_date = data.get("result")[0]["start_date"]
-                AdAccountAtrribution.objects.get_or_create(
-                    ad_source=ad_source,
-                    defaults={
-                        "attr_id": attr_id,
-                        "attribution_model": attribution_model,
-                        "clicks": clicks,
-                        "cost": cost,
-                        "cost_per_click": cost_per_click,
-                        "cost_per_lead": cost_per_lead,
-                        "cost_per_sale": cost_per_sale,
-                        "cost_per_unique_sales": cost_per_unique_sales,
-                        "average_order_value": average_order_value,
-                        "ctr": ctr,
-                        "impressions": impressions,
-                        "leads": leads,
-                        "profit": profit,
-                        "roas": roas,
-                        "sales": sales,
-                        "total_revenue": total_revenue,
-                        "unique_sales": unique_sales,
-                        "end_date": end_date,
-                        "start_date": start_date
-                    }
-                )
-                logger.info("Ad Attribution data saved.")
+                with transaction.atomic():
+                    adattr, created = AdAccountAtrribution.objects.get_or_create(
+                        ad_source=ad_source,
+                        defaults={
+                            "attr_id": attr_id,
+                            "attribution_model": attribution_model,
+                            "clicks": clicks,
+                            "cost": cost,
+                            "cost_per_click": cost_per_click,
+                            "cost_per_lead": cost_per_lead,
+                            "cost_per_sale": cost_per_sale,
+                            "cost_per_unique_sales": cost_per_unique_sales,
+                            "average_order_value": average_order_value,
+                            "ctr": ctr,
+                            "impressions": impressions,
+                            "leads": leads,
+                            "profit": profit,
+                            "roas": roas,
+                            "sales": sales,
+                            "total_revenue": total_revenue,
+                            "unique_sales": unique_sales,
+                            "end_date": end_date,
+                            "start_date": start_date
+                        }
+                    )
+                    logger.info(f"Ad Attribution data saved -> {adattr}")
             else:
                 logger.error("Failed to fetch Ad Attribution data: ", exc_info=True)
 
@@ -242,8 +243,8 @@ if __name__ == "__main__":
         hyros = FetchHyrosData()
         attribution_model = "first_click"
         start_date, end_date = hyros.get_dates()
-        # hyros.get_ad_account_attribution(attribution_model, start_date, end_date)
-        # hyros.get_tags()
+        hyros.get_ad_account_attribution(attribution_model, start_date, end_date)
+        hyros.get_tags()
     except Exception as e:
         logger.error(f"Error while accessing Hyros API: {e}", exc_info=True)
     finally:

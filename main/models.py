@@ -70,6 +70,8 @@ class Ad(models.Model):
     """
     name = models.CharField(max_length=255)
     source = models.ForeignKey(Source, on_delete=models.CASCADE, related_name="ads")
+    adsource = models.ForeignKey(AdSource, on_delete=models.SET_NULL, related_name="ad_adsrc", null=True, blank=True, default=None)
+    adaccattr = models.ForeignKey(AdAccountAtrribution, on_delete=models.SET_NULL, related_name="ad_adattr", null=True, blank=True, default=None)
     creation_date = models.CharField(null=True, blank=True)
 
     def __str__(self):

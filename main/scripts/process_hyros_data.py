@@ -5,7 +5,6 @@ import json
 import django
 import logging
 from django.conf import settings
-from django.db import connection, transaction
 
 def setup_django():
     """Ensures Django settings are configured before using ORM or settings."""
@@ -18,7 +17,7 @@ def setup_django():
 # Setup
 setup_django()
 from django.db import connection, transaction
-from main.models import TrafficSource, AdSource, Source, Ad, Lead, Tag
+from main.models import TrafficSource, AdSource, Source, Ad, Lead, Tag, AdAccountAtrribution
 
 
 # Logging configuration
@@ -43,7 +42,7 @@ class AddJSONDataToModels:
 
     def __init__(self):
         self.INTEGRATIONS = ['FACEBOOK', 'GOOGLE', 'SNAPCHAT', 'TIKTOK', 'TWITTER', 'LINKEDIN']
-        self.BASE_DIR = os.path.join(settings.BASE_DIR.parent, 'output')
+        self.BASE_DIR = os.path.join(settings.BASE_DIR, 'output')
 
     def get_json_files(self, source):
         json_files = []
@@ -133,11 +132,15 @@ class AddJSONDataToModels:
 
             for entry in data["result"]:
                 source = Source.objects.filter(tag=entry["source"]["tag"]).first()
+                adsource = AdSource.objects.filter(ad_source_id=entry["source"]["adSource"]["adSourceId"]).first()
+                adaccattr = AdAccountAtrribution.objects.filter(attr_id=entry["source"]["adSource"]["adAccountId"]).first()
                 if source is not None:
-                    ad, created = Ad.objects.get_or_create(
+                    ad, created = Ad.objects.update_or_create(
                         name=entry["name"],
                         defaults={
                             "source": source,
+                            "adsource": adsource,
+                            "adaccattr": adaccattr,
                             "creation_date": str(entry["creationDate"])
                         }
                     )
@@ -190,7 +193,8 @@ class AddJSONDataToModels:
 if __name__ == "__main__":
     try:
         json2db = AddJSONDataToModels()
-        output_list = ['sources', 'ads', 'leads', 'tags']
+        # output_list = ['sources', 'ads', 'leads', 'tags']
+        output_list = ['ads']
         for output in output_list:
             json_files_path = json2db.get_json_files(source=output)
             if output == "sources":

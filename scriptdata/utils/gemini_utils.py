@@ -32,6 +32,7 @@ def generate_ad_script(user_query, retrieved_ads):
     Returns:
         str: The generated ad script from Gemini.
     """
+
     # Step 1: Format the retrieved ads as context for Gemini
     context = "Below are past ad scripts related to the request:\n\n"
     context += "*" * 50 + "\n"

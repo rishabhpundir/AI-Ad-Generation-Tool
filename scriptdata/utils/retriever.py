@@ -1,6 +1,6 @@
 from scriptdata.utils.embeddings import generate_embedding, index
 
-def retrieve_similar_ads(query, top_n=5):
+def retrieve_similar_ads(query, top_n=20):
     """
     Retrieves top N most similar ad scripts based on user query.
     """

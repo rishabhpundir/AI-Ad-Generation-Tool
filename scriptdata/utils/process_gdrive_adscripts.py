@@ -68,10 +68,23 @@ class ExtractAd:
 
     # GET HTML FILES FROM GOOGLE DRIVE
     def list_google_docs(self, folder_id):
-        """Function to get Google Docs from the specific folder"""
+        """Function to get all Google Docs from the specified folder using pagination."""
         query = f"'{folder_id}' in parents and mimeType='application/vnd.google-apps.document'"
-        results = drive_service.files().list(q=query, fields="files(id, name)").execute()
-        return results.get('files', [])
+        all_files = []
+        page_token = None
+        while True:
+            results = drive_service.files().list(
+                q=query,
+                fields="nextPageToken, files(id, name)",
+                pageSize=1000,  # Max allowed: 1000
+                pageToken=page_token
+            ).execute()
+            files = results.get('files', [])
+            all_files.extend(files)
+            page_token = results.get('nextPageToken')
+            if not page_token:
+                break
+        return all_files
 
 
     def fetch_gdrive_docs(self, file_id, file_name):
@@ -310,7 +323,7 @@ class ExtractAd:
 if __name__ == '__main__':
     try:
         ad_extracter = ExtractAd()
-        ad_extracter.process_google_ad_scripts(limit=200)
+        ad_extracter.process_google_ad_scripts(limit=4000)
         logger.info("Processing Complete!")
     except Exception as e:
         logger.error(f"Error while processing google ad scripts: ", exc_info=True)
