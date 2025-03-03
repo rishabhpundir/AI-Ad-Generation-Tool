@@ -9,8 +9,6 @@ DEPLOY_DIR="/home/stillbloom/HyrosAdTool"
 
 # Fix permissions before deletion
 echo "Fixing permissions..."
-chown -R jenkins:jenkins "$DEPLOY_DIR"
-chmod -R 775 "$DEPLOY_DIR"
 
 # Remove project directory if it exists
 if [ -d "$DEPLOY_DIR" ]; then
