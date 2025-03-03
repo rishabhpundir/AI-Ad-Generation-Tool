@@ -12,7 +12,9 @@ pipeline {
                 script {
                     echo "Running Cleanup..."
                     sh '''
-                    bash scripts/cleanup.sh || exit 1
+                    sudo systemctl stop gunicorn
+                    sudo systemctl stop nginx
+                    sudo -n bash scripts/cleanup.sh || exit 1
                     '''
                 }
             }
