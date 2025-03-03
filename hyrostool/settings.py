@@ -141,14 +141,14 @@ USE_TZ = True
 ON_SERVER = os.environ.get('ON_SERVER')
 
 if ON_SERVER == "True":
-    STATIC_URL = '/var/www/html/staticfiles/'
-    MEDIA_URL = '/var/www/html/media/'
+    STATIC_ROOT = '/var/www/html/staticfiles/'
+    MEDIA_ROOT = '/var/www/html/media/'
 else:
-    STATIC_URL = '/staticfiles/'
-    MEDIA_URL = 'media/'
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+STATIC_URL = '/staticfiles/'
+MEDIA_URL = 'media/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
