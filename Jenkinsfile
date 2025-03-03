@@ -12,9 +12,9 @@ pipeline {
                 script {
                     echo "Running Cleanup..."
                     sh '''
-                    systemctl stop gunicorn
-                    systemctl stop nginx
-                    bash scripts/cleanup.sh || exit 1
+                    sudo systemctl stop gunicorn
+                    sudo systemctl stop nginx
+                    sudo bash scripts/cleanup.sh || exit 1
                     '''
                 }
             }
@@ -48,7 +48,7 @@ pipeline {
                 script {
                     echo "Starting Deployment..."
                     sh '''
-                    sudo -n bash scripts/deploy.sh || exit 1
+                    sudo bash scripts/deploy.sh || exit 1
                     '''
                 }
             }
