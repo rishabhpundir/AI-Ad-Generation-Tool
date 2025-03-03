@@ -38,6 +38,6 @@ python manage.py collectstatic --noinput
 
 # Restart services
 sudo systemctl restart gunicorn
-sudo systemctl reload nginx
+sudo systemctl restart nginx
 
 echo "Deployment Done..."
