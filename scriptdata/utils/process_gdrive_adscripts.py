@@ -103,7 +103,6 @@ class ExtractAd:
         # Extract ZIP contents
         with zipfile.ZipFile(file_stream, 'r') as zip_ref:
             html_files = [f for f in zip_ref.namelist() if f.endswith('.html')]  # Find HTML file
-            
             if not html_files:
                 logger.warning(f"No HTML file found in the exported ZIP for {file_name}")
                 return
@@ -291,33 +290,44 @@ class ExtractAd:
         logger.info(f"Saved: {filename} → Pinecone (Platform: {platform}, Ad Type: {ad_type}, Industry: {industry})")
 
 
-    def batch_process_docs(self, input_folder):
+    def batch_process_docs(self, temp_folder):
         """
         Processes all .docx files in the given folder and saves them to the database.
         """
         logger.info("Initiating batch processing of ad script docx...")
-        for filename in os.listdir(input_folder):
+        for filename in os.listdir(temp_folder):
             wait_time = random.randint(5, 10)
             logger.info(f"Processing Doc: {filename}")
             if filename.endswith(".html"):
-                file_path = os.path.join(input_folder, filename)
+                file_path = os.path.join(temp_folder, filename)
                 self.process_docx(file_path)
             time.sleep(wait_time)
 
 
-    def process_google_ad_scripts(self, limit=None):
+    def chunk_list(self, docs, batch_size):
+        """Yield successive chunks from list."""
+        for i in range(0, len(docs), batch_size):
+            yield docs[i:i + batch_size]
+
+
+    def process_google_ad_scripts(self, limit=None, batch_size=100):
         docs = self.list_google_docs(folder_id=GDRIVE_FOLDER_ID)
         if not docs:
             logger.info("No Google Docs found in the specified folder.")
-        else:
-            for doc in docs[:limit]:
-                self.fetch_gdrive_docs(doc['id'], doc['name'])
+            return
+        if limit:
+            docs = docs[:limit]
 
-            logger.info("Initiating batch processing...")
-            self.batch_process_docs(input_folder=TEMP_FOLDER)
+        for batch_number, batch in enumerate(self.chunk_list(docs, batch_size), start=1):
+            breakpoint()
+            logger.info(f"** Processing batch {batch_number} ({len(batch)} docs) out of total {len(docs)} docs **")
+            for doc in batch:
+                self.fetch_gdrive_docs(doc['id'], doc['name'])
+            logger.info("Initiating batch processing of downloaded docs...")
+            self.batch_process_docs(temp_folder=TEMP_FOLDER)
             if os.path.exists(TEMP_FOLDER):
                 shutil.rmtree(TEMP_FOLDER)
-            logger.info("Processing Complete!")
+        logger.info("Processing Complete!")
 
 
 if __name__ == '__main__':
