@@ -12,7 +12,7 @@ pipeline {
                 script {
                     echo "Running Cleanup..."
                     sh '''
-                    sudo -n bash scripts/cleanup.sh || exit 1
+                    bash scripts/cleanup.sh || exit 1
                     '''
                 }
             }
