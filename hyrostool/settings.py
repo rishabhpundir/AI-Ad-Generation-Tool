@@ -138,9 +138,16 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = '/staticfiles/'
+ON_SERVER = os.environ.get('ON_SERVER')
+
+if ON_SERVER == "True":
+    STATIC_URL = '/var/www/html/staticfiles/'
+    MEDIA_URL = '/var/www/html/media/'
+else:
+    STATIC_URL = '/staticfiles/'
+    MEDIA_URL = 'media/'
+
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-MEDIA_URL = 'media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type

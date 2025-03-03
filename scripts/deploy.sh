@@ -33,6 +33,7 @@ else
 fi
 
 # Run migrations and collect static files
+cp -r /home/stillbloom/media /home/stillbloom/HyrosAdTool
 python manage.py migrate
 python manage.py collectstatic --noinput
 
