@@ -1,0 +1,12 @@
+[Unit]
+Description=Gunicorn daemon for StillBloom project
+After=network.target
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/home/stillbloom/HyrosAdTool
+ExecStart=/home/stillbloom/venv/bin/gunicorn --workers 3 --bind unix:/home/stillbloom/HyrosAdTool/hyros.sock hyrostool.wsgi:application
+
+[Install]
+WantedBy=multi-user.target

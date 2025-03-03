@@ -7,7 +7,6 @@ from scriptdata.utils.gemini_utils import generate_ad_script
 
 
 def rank_ads_by_performance(retrieved_ads):
-    breakpoint()
     """
     Ranks ads based on performance using Hyros attribution data.
     Args: retrieved_ads (list): List of retrieved ad metadata from Pinecone.
