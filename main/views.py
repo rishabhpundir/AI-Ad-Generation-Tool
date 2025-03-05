@@ -11,10 +11,11 @@ def rank_ads_by_performance(retrieved_ads):
     Ranks ads based on performance using Hyros attribution data.
     Args: retrieved_ads (list): List of retrieved ad metadata from Pinecone.
     Returns: list: Top 5 ranked ads.
-    """
+    """ 
     ranked_ads = []
     for ad_data in retrieved_ads:
-        ad = Ad.objects.filter(name=ad_data["filename"]).first()
+        # adscript = AdScript.objects.filter(name=ad_data["file_id"]).first()               # Work on these two
+        # ad = Ad.objects.filter()
         if ad and ad.adaccattr:  # Ensure ad has attribution data
             attr = ad.adaccattr
             # Define scoring based on key performance indicators (weights can be adjusted)
