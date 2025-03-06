@@ -50,7 +50,6 @@ def rank_ads_by_performance(retrieved_ads):
         adscript = AdScript.objects.filter(filename=ad_data["filename"]).first()
         if not adscript:
             continue
-
         adscript_str = str(adscript)
         print(f"Raw AdScript: {adscript_str}")
 

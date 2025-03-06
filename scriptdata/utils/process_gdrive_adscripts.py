@@ -112,12 +112,7 @@ class ExtractAd:
 
         # Clean filename
         output_filename = re.sub(r'[\/:*?"<>|]', '_', f"{file_name}")
-        output_filename = output_filename.replace(
-                                " ", "_").replace(
-                                "__", "_").replace(
-                                "__", "_").replace(
-                                "_-_", "_")
-        output_filename = f"{output_filename}__{file_id}.html"
+        output_filename = f"{output_filename}__-__{file_id}.html"
         file_path = os.path.join(TEMP_FOLDER, output_filename)
         with open(file_path, "wb") as f:
             f.write(extracted_html)
@@ -260,7 +255,9 @@ class ExtractAd:
         Processes HTML file, extracts metadata, and saves to the database.
         """
         filename = os.path.basename(p=file_path)
-        file_id = filename.rsplit("__", 1)[-1].rsplit(".", 1)[0]
+        filename, file_id = filename.rsplit("__-__", 1)
+        file_id = file_id.rsplit(".", 1)[0]
+        filename = filename[:253]
         text_content = self.extract_from_html(file_path=file_path)
         metadata_from_filename = self.extract_metadata_from_filename(filename=filename)
         metadata_from_content = self.extract_metadata_from_content(text=text_content)
@@ -281,7 +278,7 @@ class ExtractAd:
                     "content": text_content
                 }
             )
-            ad_script[0].ad_file.save(os.path.basename(file_path), django_file, save=True)
+            ad_script[0].ad_file.save(f"{filename[:50]}_{file_id}.html", django_file, save=True)
 
         # Generate embedding & save to pinecone
         embedding_vector = generate_embedding(text_content)
@@ -310,7 +307,7 @@ class ExtractAd:
             yield docs[i:i + batch_size]
 
 
-    def process_google_ad_scripts(self, limit=None, batch_size=100):
+    def process_google_ad_scripts(self, limit=None, batch_size=10):
         docs = self.list_google_docs(folder_id=GDRIVE_FOLDER_ID)
         if not docs:
             logger.info("No Google Docs found in the specified folder.")
@@ -319,7 +316,6 @@ class ExtractAd:
             docs = docs[:limit]
 
         for batch_number, batch in enumerate(self.chunk_list(docs, batch_size), start=1):
-            breakpoint()
             logger.info(f"** Processing batch {batch_number} ({len(batch)} docs) out of total {len(docs)} docs **")
             for doc in batch:
                 self.fetch_gdrive_docs(doc['id'], doc['name'])
@@ -327,13 +323,14 @@ class ExtractAd:
             self.batch_process_docs(temp_folder=TEMP_FOLDER)
             if os.path.exists(TEMP_FOLDER):
                 shutil.rmtree(TEMP_FOLDER)
+            os.makedirs(TEMP_FOLDER, exist_ok=True)
         logger.info("Processing Complete!")
 
 
 if __name__ == '__main__':
     try:
         ad_extracter = ExtractAd()
-        ad_extracter.process_google_ad_scripts(limit=4000)
+        ad_extracter.process_google_ad_scripts()
         logger.info("Processing Complete!")
     except Exception as e:
         logger.error(f"Error while processing google ad scripts: ", exc_info=True)
