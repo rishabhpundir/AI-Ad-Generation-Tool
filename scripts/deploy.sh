@@ -35,9 +35,12 @@ fi
 # Run migrations and collect static files
 python manage.py migrate
 python manage.py collectstatic --noinput
+cp /home/stillbloom/SERVICE_ACCOUNT_FILE.json /home/stillbloom/HyrosAdTool/
 
 # Restart services
 sudo systemctl restart gunicorn
+sudo systemctl restart celery
+sudo systemctl restart celery-beat
 sudo systemctl restart nginx
 
 echo "Deployment Done..."

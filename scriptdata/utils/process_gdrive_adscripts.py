@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 
 # Config
-SERVICE_ACCOUNT_FILE = "galvanized-app-445607-e7-1604e087ad17.json"
+SERVICE_ACCOUNT_FILE = "SERVICE_ACCOUNT_FILE.json"
 GDRIVE_FOLDER_ID = settings.GDRIVE_FOLDER_ID
 SCOPES = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/documents.readonly"]
 creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
