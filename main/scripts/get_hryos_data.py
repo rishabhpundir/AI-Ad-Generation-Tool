@@ -208,7 +208,7 @@ class FetchHyrosData:
                 end_date = data.get("result")[0]["end_date"]
                 start_date = data.get("result")[0]["start_date"]
                 with transaction.atomic():
-                    adattr, created = AdAccountAtrribution.objects.get_or_create(
+                    adattr, created = AdAccountAtrribution.objects.update_or_create(
                         ad_source=ad_source,
                         defaults={
                             "attr_id": attr_id,
@@ -244,7 +244,6 @@ if __name__ == "__main__":
         attribution_model = "first_click"
         start_date, end_date = hyros.get_dates()
         hyros.get_ad_account_attribution(attribution_model, start_date, end_date)
-        hyros.get_tags()
     except Exception as e:
         logger.error(f"Error while accessing Hyros API: {e}", exc_info=True)
     finally:

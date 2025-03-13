@@ -252,23 +252,28 @@ class ExtractAd:
     @transaction.atomic
     def process_docx(self, file_path):
         """
-        Processes HTML file, extracts metadata, and saves to the database.
+        Processes HTML file, extracts metadata, saves to the database, and indexes in Pinecone.
         """
-        filename = os.path.basename(p=file_path)
+        filename = os.path.basename(file_path)
         filename, file_id = filename.rsplit("__-__", 1)
         file_id = file_id.rsplit(".", 1)[0]
         filename = filename[:253]
-        text_content = self.extract_from_html(file_path=file_path)
-        metadata_from_filename = self.extract_metadata_from_filename(filename=filename)
-        metadata_from_content = self.extract_metadata_from_content(text=text_content)
 
-        # Combine metadata sources
+        # Extract text and metadata
+        text_content = self.extract_from_html(file_path)
+        metadata_from_filename = self.extract_metadata_from_filename(filename)
+        metadata_from_content = self.extract_metadata_from_content(text_content)
+
+        # Determine metadata values
         platform = metadata_from_filename.get("platform", "") or ""
         ad_type = metadata_from_filename.get("ad_type", "") or ""
         industry = metadata_from_content.get("industry", "") or metadata_from_filename.get("industry", "") or ""
+
+        # Save file to Django storage
+        stored_filename = f"{filename[:50]}_{file_id}.html"
         with open(file_path, 'rb') as f:
             django_file = File(f)
-            ad_script = AdScript.objects.get_or_create(
+            ad_script, created = AdScript.objects.update_or_create(
                 filename=filename,
                 file_id=file_id,
                 defaults={
@@ -278,13 +283,25 @@ class ExtractAd:
                     "content": text_content
                 }
             )
-            ad_script[0].ad_file.save(f"{filename[:50]}_{file_id}.html", django_file, save=True)
+            ad_script.ad_file.save(stored_filename, django_file, save=True)
 
-        # Generate embedding & save to pinecone
+        # Get the stored file path (relative to MEDIA_URL)
+        stored_file_path = ad_script.ad_file.url if ad_script.ad_file else ""
+
+        # Generate embedding & store in Pinecone with filename
         embedding_vector = generate_embedding(text_content)
-        index.upsert([(filename, embedding_vector, {"file_id": file_id, "platform": platform, 
-                                                    "ad_type": ad_type, "industry": industry})])
-        logger.info(f"Saved: {filename} → Pinecone (Platform: {platform}, Ad Type: {ad_type}, Industry: {industry})")
+        index.upsert([
+            (filename, embedding_vector, {
+                "file_id": file_id,
+                "platform": platform,
+                "ad_type": ad_type,
+                "industry": industry,
+                "stored_filename": stored_filename,  # Store filename
+                "stored_file_url": stored_file_path  # Store file URL
+            })
+        ])
+
+        logger.info(f"Saved: {filename} → Pinecone (Platform: {platform}, Ad Type: {ad_type}, Industry: {industry}, File: {stored_filename})")
 
 
     def batch_process_docs(self, temp_folder):

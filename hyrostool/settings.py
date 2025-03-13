@@ -52,7 +52,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 ]
 
-PACKAGES = ['rest_framework', 'drf_yasg']
+PACKAGES = ['rest_framework', 'drf_yasg', 'django_celery_beat']
 
 CUSTOM_APPS = ['main', 'scriptdata']
 
@@ -128,7 +128,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "Europe/London"
 
 USE_I18N = True
 
@@ -160,3 +160,13 @@ HYROS_API_KEY = os.environ.get('HYROS_API_KEY')
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 GDRIVE_FOLDER_ID = os.environ.get('GDRIVE_FOLDER_ID')
+
+
+# CELERY Setup
+# Celery settings
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
+
+
