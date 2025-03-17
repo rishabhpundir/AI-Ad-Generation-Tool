@@ -14,6 +14,7 @@ def remove_copy_of(text: str) -> str:
         text = text.replace("Copy of ", "")
     return text.strip()
 
+
 def extract_ids_from_adscript(adscript_str: str, max_ids: int = 3) -> list:
     """
     1. Remove 'Copy of ' substrings.
@@ -25,7 +26,7 @@ def extract_ids_from_adscript(adscript_str: str, max_ids: int = 3) -> list:
     cleaned_str = remove_copy_of(adscript_str)
 
     # 2) Split on " - "
-    parts = cleaned_str.split(" - ")
+    parts = cleaned_str.split("-")
 
     # 3) (Option A) Keep the first `max_ids` segments as-is
     #    If you specifically need them to match an alphanumeric pattern, you can filter.
@@ -39,6 +40,7 @@ def extract_ids_from_adscript(adscript_str: str, max_ids: int = 3) -> list:
 
     return result
 
+
 def rank_ads_by_performance(retrieved_ads):
     """
     Ranks ads based on performance using Hyros attribution data.
@@ -47,7 +49,7 @@ def rank_ads_by_performance(retrieved_ads):
     ranked_ads = []
     
     for ad_data in retrieved_ads:
-        adscript = AdScript.objects.filter(filename=ad_data["filename"]).first()
+        adscript = AdScript.objects.filter(filename__icontains=ad_data["filename"]).first()
         if not adscript:
             continue
         adscript_str = str(adscript)
