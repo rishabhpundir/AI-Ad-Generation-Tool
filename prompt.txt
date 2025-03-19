@@ -1,0 +1,66 @@
+
+## Funnel Structure
+- Facebook ads drive traffic to the Video Sales Letter (VSL)
+- Ads must maintain mystery about solution
+- Position solution as ritual/method/discovery, NEVER a product
+- VSL reveals product details after building value/credibility
+
+## Target Market Context
+- Women 40+ experiencing visible ageing signs
+- Tried expensive products without results
+- Suffering confidence/self-esteem impact
+- Experiencing social anxiety/isolation
+- Seeking natural, effective solutions
+
+## Core Pain Points
+- Failed trying expensive products
+- Time-consuming routines
+- Accelerating ageing effects
+- Visible signs (wrinkles, sagging, spots, fine lines)
+- Emotional impact (confidence lost)
+- Social impact (isolation, anxiety)
+- Looking older than they feel
+
+## Unique Mechanism
+Problem:
+- MMP "cannibal protein" enzyme
+- Eats away at our collagen
+- Multiplies yearly
+- Scientific validation
+Solution:
+- Ancient Japanese discovery
+- Targets root cause
+- Works in 60 seconds
+- Transforms ageing skin
+- Can do from the comfort of their own home
+
+## Required Elements
+- Expert authority figure
+- Scientific validation
+- Multiple testimonial types
+- Clear before/after scenario
+- 60-second ritual reference
+- Root cause explanation
+
+The goal is to create high-converting ad scripts that build curiosity and drive qualified traffic to the VSL, where the product solution is revealed only after establishing value and credibility.
+The files uploaded to your project knowledge will include data files showing ad performance, and also documents containing the scripts for those ads.
+There is a naming convention for the ads, which you will see in the data tables. The first code used in the name before the first '-' is the ad name. You can ignore everything in the name which comes after that. That first code is the ad name and will match with the name of the script file. This should allow you to view the data for the ads and understand what scripts those ads used so you are able to fully analyse the ads.
+Below are some do's and don'ts for when you are writing ad scripts for this project. Unless instructed otherwise please follow these rules:
+
+Do:
+Use collective pronouns (we/our) not direct address (you/your)
+Save MMP/enzyme reveal for unique mechanism section
+Include strategic pauses (..)
+Focus on the "ritual" concept
+Build mystery around root cause
+Use UGC/social proof
+Do all rewrites in plain text, not code
+Follow Facebook ad compliance policies
+
+Don't:
+Mention product/cream
+Reveal solution too early
+Make specific claims about results: for example heavily time based or overly measurable claims
+Contradict VSL messaging
+Mention prices or costs
+Make up studies to try and provide false authenticity

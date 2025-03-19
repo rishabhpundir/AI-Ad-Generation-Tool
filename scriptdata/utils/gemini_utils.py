@@ -46,18 +46,27 @@ def generate_ad_script(user_query, retrieved_ads):
             context += f"Script:\n{ad.content}\n\n"
     context += "*" * 50
 
+    with open('prompt.txt', "r", encoding="utf-8") as file:
+        prompt_context = file.read()
+
     # Step 2: Define the prompt for Gemini
     prompt = f"""
     You are an expert in writing high-converting ad scripts. A user has requested a new ad script for the following query:
-
+    #########
     "{user_query}"
+    #########
 
+    Here are some contextual ad examples :
+    #########
     {context}
+    #########
 
     Based on the above ads, generate a new ad script that follows a similar structure and tone. Ensure the script:
     - Has an engaging **hook** to grab attention.
     - Introduces the **problem** and **solution** clearly.
     - Includes a **call-to-action (CTA)** at the end.
+
+    {prompt_context}
 
     Return only the ad script, no explanations.
     """
@@ -75,6 +84,7 @@ def generate_ad_script(user_query, retrieved_ads):
             max_output_tokens=1000  # Controls response length
     )
 
+    
     response = model.generate_content(
         contents=prompt, 
         generation_config=generation_config
